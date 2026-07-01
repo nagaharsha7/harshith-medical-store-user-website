@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { User, MapPin, Phone, Lock, Camera, Save } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, MapPin, Phone, Lock, Camera, Save, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 const profileSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -23,6 +25,17 @@ const passwordSchema = z.object({
 export default function Profile() {
   const [activeTab, setActiveTab] = useState('personal');
   const [isUpdating, setIsUpdating] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error("Failed to log out", error);
+    }
+  };
 
   // Mock User
   const user = {
@@ -97,6 +110,12 @@ export default function Profile() {
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-colors ${activeTab === 'security' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
               >
                 <Lock className="w-5 h-5" /> Security
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-colors text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 mt-4"
+              >
+                <LogOut className="w-5 h-5" /> Logout
               </button>
             </nav>
           </div>

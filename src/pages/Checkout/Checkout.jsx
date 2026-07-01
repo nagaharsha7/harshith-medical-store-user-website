@@ -5,6 +5,7 @@ import * as z from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, CreditCard, Wallet, Banknote, Loader2, CheckCircle2 } from 'lucide-react';
 import { useCartStore } from '../../store/useCartStore';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const checkoutSchema = z.object({
@@ -57,6 +58,8 @@ export default function Checkout() {
     );
   };
 
+  const { currentUser, userData } = useAuth();
+
   const onSubmit = async (data) => {
     if (!location) {
       toast.error("Please capture your live GPS location before placing the order");
@@ -70,26 +73,33 @@ export default function Checkout() {
 
     setIsProcessing(true);
 
-    // Simulate API call and payment processing
-    setTimeout(() => {
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      const { db } = await import('../../config/firebase');
+
       const orderData = {
-        ...data,
+        userId: currentUser?.uid || 'guest',
+        userEmail: currentUser?.email || '',
+        shippingInfo: data,
         location,
         paymentMethod,
         items,
         total: items.reduce((acc, item) => acc + (item.price * item.quantity), 0),
-        status: 'Order Received',
-        date: new Date().toISOString(),
-        orderId: `ORD${Math.floor(100000 + Math.random() * 900000)}`
+        status: 'Pending',
+        createdAt: new Date().toISOString()
       };
 
-      console.log('Order saved:', orderData);
+      await addDoc(collection(db, 'orders'), orderData);
       
-      setIsProcessing(false);
       clearCart();
       toast.success("Order Placed Successfully!");
       navigate('/orders');
-    }, 2000);
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error("Failed to place order. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -181,31 +191,13 @@ export default function Checkout() {
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Payment Options</h2>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                 <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="hidden" />
                 <Banknote className={`w-6 h-6 mr-3 ${paymentMethod === 'cod' ? 'text-primary' : 'text-slate-400'}`} />
                 <div>
                   <div className="font-semibold text-slate-900 dark:text-white">Cash on Delivery</div>
-                  <div className="text-xs text-slate-500">Pay when you receive</div>
-                </div>
-              </label>
-
-              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'upi' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                <input type="radio" name="payment" value="upi" checked={paymentMethod === 'upi'} onChange={() => setPaymentMethod('upi')} className="hidden" />
-                <Wallet className={`w-6 h-6 mr-3 ${paymentMethod === 'upi' ? 'text-primary' : 'text-slate-400'}`} />
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white">UPI</div>
-                  <div className="text-xs text-slate-500">GPay, PhonePe, Paytm</div>
-                </div>
-              </label>
-
-              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'card' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                <input type="radio" name="payment" value="card" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} className="hidden" />
-                <CreditCard className={`w-6 h-6 mr-3 ${paymentMethod === 'card' ? 'text-primary' : 'text-slate-400'}`} />
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white">Credit/Debit Card</div>
-                  <div className="text-xs text-slate-500">Visa, Mastercard, RuPay</div>
+                  <div className="text-xs text-slate-500">Pay when you receive the medicines</div>
                 </div>
               </label>
             </div>

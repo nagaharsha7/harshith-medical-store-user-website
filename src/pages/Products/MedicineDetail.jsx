@@ -1,31 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Zap, ShieldCheck, ArrowLeft, Star, Heart, FileText, Info, AlertTriangle, Archive } from 'lucide-react';
 import { useCartStore } from '../../store/useCartStore';
 import toast from 'react-hot-toast';
-
-// Dummy data matching previous ones
-const MOCK_MEDICINE = {
-  id: '1', 
-  name: 'Dolo 650 Tablet', 
-  genericName: 'Paracetamol', 
-  brand: 'Micro Labs Ltd', 
-  category: 'Tablets', 
-  mrp: 30, 
-  price: 25, 
-  rating: 4.8, 
-  reviews: 1240, 
-  inStock: true, 
-  image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80',
-  description: 'Dolo 650 Tablet is a widely prescribed medicine that helps ease pain and bring down high body temperature (fever). It works by blocking the release of certain chemical messengers that cause fever and pain.',
-  uses: ['Pain Relief', 'Fever', 'Headache', 'Muscle Ache'],
-  dosage: 'Take this medicine in the dose and duration as advised by your doctor. Swallow it as a whole. Do not chew, crush or break it. Dolo 650 Tablet is to be taken with food.',
-  sideEffects: ['Stomach pain', 'Nausea', 'Vomiting'],
-  storage: 'Store in a cool and dry place away from sunlight. Keep out of reach of children.',
-  composition: 'Paracetamol (650mg)',
-  rxRequired: false
-};
-
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 const RELATED_MEDICINES = [
   { id: '2', name: 'Benadryl Cough Syrup', genericName: 'Diphenhydramine', brand: 'Johnson & Johnson', category: 'Syrups', mrp: 120, price: 105, rating: 4.5, reviews: 856, inStock: true, image: 'https://images.unsplash.com/photo-1628771065518-0d82f1938462?w=400&q=80' },
   { id: '3', name: 'Volini Pain Relief Gel', genericName: 'Diclofenac', brand: 'Sun Pharma', category: 'Personal Care', mrp: 150, price: 135, rating: 4.6, reviews: 543, inStock: true, image: 'https://images.unsplash.com/photo-1550572017-edb79a528e21?w=400&q=80' },
@@ -38,9 +17,46 @@ export default function MedicineDetail() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const addItem = useCartStore(state => state.addItem);
 
-  // In a real app, we'd fetch the medicine based on `id`
-  const medicine = MOCK_MEDICINE;
+  const [medicine, setMedicine] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMedicine = async () => {
+      try {
+        const docRef = doc(db, 'medicines', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setMedicine({ id: docSnap.id, ...docSnap.data() });
+        } else {
+          setMedicine(null);
+        }
+      } catch (error) {
+        console.error("Error fetching medicine:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedicine();
+  }, [id]);
+
+  if (loading) {
+    return <div className="text-center py-24 text-slate-500">Loading medicine details...</div>;
+  }
+
+  if (!medicine) {
+    return (
+      <div className="text-center py-24">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Medicine Not Found</h2>
+        <Link to="/search" className="text-primary hover:underline">Return to Search</Link>
+      </div>
+    );
+  }
+
   const discountPercentage = Math.round(((medicine.mrp - medicine.price) / medicine.mrp) * 100);
+
+  const isInStock = medicine.stockQuantity !== undefined 
+    ? medicine.stockQuantity > 0 
+    : medicine.inStock !== false;
 
   const handleAddToCart = () => {
     addItem(medicine);
@@ -127,14 +143,14 @@ export default function MedicineDetail() {
           <div className="flex flex-col sm:flex-row gap-4 pt-6">
             <button 
               onClick={handleAddToCart}
-              disabled={!medicine.inStock}
+              disabled={!isInStock}
               className="flex-1 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white py-4 rounded-2xl font-bold text-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <ShoppingCart className="w-5 h-5" /> Add to Cart
             </button>
             <button 
               onClick={handleBuyNow}
-              disabled={!medicine.inStock}
+              disabled={!isInStock}
               className="flex-1 bg-primary hover:bg-primary-hover text-white py-4 rounded-2xl font-bold text-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Zap className="w-5 h-5" /> Buy Now
@@ -211,16 +227,20 @@ export default function MedicineDetail() {
             </div>
           )}
 
-          {activeTab === 'sideEffects' && (
+          {activeTab === 'sideEffects' && medicine.sideEffects && (
             <div>
               <h3 className="text-xl font-bold mb-4">Common Side Effects</h3>
               <p className="text-slate-500 mb-6">Most side effects do not require any medical attention and disappear as your body adjusts to the medicine. Consult your doctor if they persist.</p>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {medicine.sideEffects.map((effect, i) => (
+                {Array.isArray(medicine.sideEffects) ? medicine.sideEffects.map((effect, i) => (
                   <li key={i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg text-slate-700 dark:text-slate-300 font-medium">
                     <AlertTriangle className="w-4 h-4 text-yellow-500" /> {effect}
                   </li>
-                ))}
+                )) : typeof medicine.sideEffects === 'string' ? medicine.sideEffects.split(',').map((effect, i) => (
+                  <li key={i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg text-slate-700 dark:text-slate-300 font-medium">
+                    <AlertTriangle className="w-4 h-4 text-yellow-500" /> {effect.trim()}
+                  </li>
+                )) : null}
               </ul>
             </div>
           )}

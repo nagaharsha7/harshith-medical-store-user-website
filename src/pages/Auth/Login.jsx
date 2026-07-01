@@ -19,14 +19,54 @@ export default function Login() {
     resolver: zodResolver(loginSchema)
   });
 
-  const onSubmit = (data) => {
+  const [loginType, setLoginType] = useState('user');
+
+  const onSubmit = async (data) => {
     setIsLoading(true);
-    // Simulate API Call
-    setTimeout(() => {
-      setIsLoading(false);
+    
+    // HARDCODED ADMIN BYPASS
+    if (loginType === 'owner' && data.email === 'harshith@gmail.com' && data.password === '123456') {
+      localStorage.setItem('admin_token', 'mock_jwt_token_for_admin');
+      toast.success("Admin Login Successful!");
+      
+      // Force reload to let AuthContext pick up the local storage token
+      window.location.href = '/owner/dashboard';
+      return;
+    }
+
+    try {
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { auth, db } = await import('../../config/firebase');
+
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      // Fetch user role
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      let role = 'user';
+      if (userDoc.exists()) {
+        role = String(userDoc.data().role || 'user').trim().toLowerCase();
+      }
+
+      if (loginType === 'owner' && role !== 'owner') {
+        throw new Error(`Access denied. Your current role is "${role}", not "owner".`);
+      }
+
       toast.success("Successfully logged in!");
-      navigate('/');
-    }, 1500);
+      
+      if (role === 'owner') {
+        navigate('/owner/dashboard');
+      } else {
+        navigate('/');
+      }
+
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Invalid credentials");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -37,11 +77,31 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-4">
             <Heart className="w-8 h-8" />
           </div>
-          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">Welcome back</h2>
-          <p className="mt-2 text-slate-600 dark:text-slate-400">Log in to your account to continue</p>
+          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">
+            {loginType === 'owner' ? 'Admin Login' : 'Welcome back'}
+          </h2>
+          <p className="mt-2 text-slate-600 dark:text-slate-400">
+            {loginType === 'owner' ? 'Log in to the owner dashboard' : 'Log in to your account to continue'}
+          </p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800">
+          
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-6">
+            <button 
+              onClick={() => setLoginType('user')}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${loginType === 'user' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Customer
+            </button>
+            <button 
+              onClick={() => setLoginType('owner')}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${loginType === 'owner' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Store Owner
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             
             <div>
@@ -84,10 +144,12 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-8 text-center text-sm text-slate-600 dark:text-slate-400">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-bold text-primary hover:text-primary-hover">Sign up now</Link>
-          </div>
+          {loginType === 'user' && (
+            <div className="mt-8 text-center text-sm text-slate-600 dark:text-slate-400">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-bold text-primary hover:text-primary-hover">Sign up now</Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

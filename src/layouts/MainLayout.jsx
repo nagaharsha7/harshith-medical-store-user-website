@@ -1,10 +1,22 @@
-import { Outlet, Link } from 'react-router-dom';
-import { Search, ShoppingCart, User, Menu, Heart } from 'lucide-react';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Search, ShoppingCart, User, Menu, Heart, LogOut } from 'lucide-react';
 import { useCartStore } from '../store/useCartStore';
+import { useAuth } from '../context/AuthContext';
 
 const MainLayout = () => {
   const cartItems = useCartStore(state => state.items);
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const { currentUser, userRole, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error("Failed to log out", error);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-200">
@@ -37,10 +49,29 @@ const MainLayout = () => {
 
             {/* Icons */}
             <div className="flex items-center space-x-6">
-              <Link to="/profile" className="text-slate-600 dark:text-slate-300 hover:text-primary transition-colors flex flex-col items-center gap-1">
-                <User className="h-5 w-5" />
-                <span className="text-xs hidden sm:block">Profile</span>
-              </Link>
+              {currentUser ? (
+                <>
+                  {userRole === 'owner' && (
+                    <Link to="/owner/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary transition-colors flex flex-col items-center gap-1">
+                      <User className="h-5 w-5" />
+                      <span className="text-xs hidden sm:block">Dashboard</span>
+                    </Link>
+                  )}
+                  <Link to="/profile" className="text-slate-600 dark:text-slate-300 hover:text-primary transition-colors flex flex-col items-center gap-1">
+                    <User className="h-5 w-5" />
+                    <span className="text-xs hidden sm:block">Profile</span>
+                  </Link>
+                  <button onClick={handleLogout} className="text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-colors flex flex-col items-center gap-1">
+                    <LogOut className="h-5 w-5" />
+                    <span className="text-xs hidden sm:block">Logout</span>
+                  </button>
+                </>
+              ) : (
+                <Link to="/login" className="text-slate-600 dark:text-slate-300 hover:text-primary transition-colors flex flex-col items-center gap-1">
+                  <User className="h-5 w-5" />
+                  <span className="text-xs hidden sm:block">Login</span>
+                </Link>
+              )}
               
               <Link to="/cart" className="text-slate-600 dark:text-slate-300 hover:text-primary transition-colors flex flex-col items-center gap-1 relative">
                 <div className="relative">

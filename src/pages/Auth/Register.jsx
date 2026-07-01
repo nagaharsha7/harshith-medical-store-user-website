@@ -21,14 +21,34 @@ export default function Register() {
     resolver: zodResolver(registerSchema)
   });
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     setIsLoading(true);
-    // Simulate API Call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const { createUserWithEmailAndPassword } = await import('firebase/auth');
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { auth, db } = await import('../../config/firebase');
+
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      // Save user to Firestore with user role
+      await setDoc(doc(db, 'users', user.uid), {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        address: '', 
+        role: 'user', 
+        createdAt: new Date().toISOString()
+      });
+
       toast.success("Account created successfully!");
       navigate('/');
-    }, 1500);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Failed to create account");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -101,7 +121,7 @@ export default function Register() {
               </div>
               {errors.password && <p className="text-rose-500 text-xs mt-1">{errors.password.message}</p>}
             </div>
-
+            
             <button 
               type="submit" 
               disabled={isLoading}

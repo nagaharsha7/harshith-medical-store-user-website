@@ -1,36 +1,42 @@
 import { Package, CheckCircle2, Truck, Home, Download, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const MOCK_ORDERS = [
-  {
-    id: 'ORD789012',
-    date: '2023-10-24T10:30:00Z',
-    status: 'Out For Delivery',
-    total: 310.00,
-    paymentMethod: 'UPI',
-    items: [
-      { name: 'Dolo 650 Tablet', quantity: 2, price: 25 },
-      { name: 'Benadryl Cough Syrup', quantity: 1, price: 105 }
-    ]
-  },
-  {
-    id: 'ORD456789',
-    date: '2023-10-10T14:15:00Z',
-    status: 'Delivered',
-    total: 160.00,
-    paymentMethod: 'Cash on Delivery',
-    items: [
-      { name: 'Volini Pain Relief Gel', quantity: 1, price: 135 }
-    ]
-  }
-];
-
+import { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { useAuth } from '../../context/AuthContext';
 const getStatusStep = (status) => {
   const steps = ['Order Received', 'Accepted', 'Packed', 'Out For Delivery', 'Delivered'];
   return steps.indexOf(status);
 };
 
 export default function Orders() {
+  const { currentUser } = useAuth();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const q = query(
+      collection(db, 'orders'),
+      where('userId', '==', currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedOrders = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      // Sort by descending date
+      fetchedOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setOrders(fetchedOrders);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-8">
@@ -41,7 +47,18 @@ export default function Orders() {
       </div>
 
       <div className="space-y-6">
-        {MOCK_ORDERS.map(order => {
+        {loading ? (
+          <div className="text-center py-20 text-slate-500">Loading orders...</div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800">
+            <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">No orders yet</h3>
+            <p className="text-slate-500 mb-6">Looks like you haven't placed any orders.</p>
+            <Link to="/search" className="bg-primary text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-primary-hover transition-colors">
+              Start Shopping
+            </Link>
+          </div>
+        ) : orders.map(order => {
           const currentStep = getStatusStep(order.status);
           const isCancelled = order.status === 'Cancelled';
 
@@ -52,7 +69,7 @@ export default function Orders() {
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Order Placed</p>
                     <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                      {new Date(order.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                   <div>
@@ -61,19 +78,16 @@ export default function Orders() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Payment Method</p>
-                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{order.paymentMethod}</p>
+                    <p className="font-semibold text-sm text-slate-900 dark:text-white uppercase">{order.paymentMethod}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Order ID</p>
-                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{order.id}</p>
+                    <p className="font-semibold text-sm text-slate-900 dark:text-white uppercase">#{order.id.slice(-6)}</p>
                   </div>
                 </div>
                 <div className="flex sm:flex-col gap-2 justify-end">
                   <button className="flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary-hover transition-colors">
                     <Download className="w-4 h-4" /> Invoice
-                  </button>
-                  <button className="flex items-center gap-1 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary transition-colors">
-                    <RotateCcw className="w-4 h-4" /> Reorder
                   </button>
                 </div>
               </div>
@@ -96,10 +110,10 @@ export default function Orders() {
 
                       <div className="relative z-10 flex flex-col sm:flex-row justify-between gap-6 sm:gap-0">
                         {[
-                          { title: 'Received', icon: Package },
+                          { title: 'Pending', icon: Package },
                           { title: 'Accepted', icon: CheckCircle2 },
                           { title: 'Packed', icon: Package },
-                          { title: 'Out For Delivery', icon: Truck },
+                          { title: 'Out for Delivery', icon: Truck },
                           { title: 'Delivered', icon: Home }
                         ].map((step, idx) => {
                           const Icon = step.icon;
@@ -131,7 +145,7 @@ export default function Orders() {
                       <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-                            💊
+                            <img src={item.image || 'https://via.placeholder.com/50'} alt={item.name} className="w-full h-full object-cover rounded-lg" />
                           </div>
                           <div>
                             <p className="font-semibold text-slate-900 dark:text-white text-sm">{item.name}</p>

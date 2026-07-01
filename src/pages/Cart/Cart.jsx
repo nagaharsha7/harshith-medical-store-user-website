@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Minus, Plus, Trash2, ArrowRight, ShoppingBag } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { useCartStore } from '../../store/useCartStore';
 
 export default function Cart() {
@@ -34,7 +34,7 @@ export default function Cart() {
           {items.map(item => (
             <div key={item.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-4 items-center">
               <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center flex-shrink-0 p-2">
-                <img src={item.image} alt={item.name} className="max-h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
+                <img src={item.image || item.imageUrl} alt={item.name} className="max-h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
               </div>
               <div className="flex-1 text-center sm:text-left">
                 <h3 className="font-bold text-slate-900 dark:text-white line-clamp-1">{item.name}</h3>

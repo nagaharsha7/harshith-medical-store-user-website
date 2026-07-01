@@ -3,21 +3,13 @@ import { Search as SearchIcon, Filter, SlidersHorizontal, X } from 'lucide-react
 import MedicineCard from '../../components/MedicineCard';
 import { useSearchParams } from 'react-router-dom';
 
-// Dummy medicines
-const ALL_MEDICINES = [
-  { id: '1', name: 'Dolo 650 Tablet', genericName: 'Paracetamol', brand: 'Micro Labs Ltd', category: 'Tablets', mrp: 30, price: 25, rating: 4.8, reviews: 1240, inStock: true, image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80', rxRequired: false },
-  { id: '2', name: 'Benadryl Cough Syrup', genericName: 'Diphenhydramine', brand: 'Johnson & Johnson', category: 'Syrups', mrp: 120, price: 105, rating: 4.5, reviews: 856, inStock: true, image: 'https://images.unsplash.com/photo-1628771065518-0d82f1938462?w=400&q=80', rxRequired: false },
-  { id: '3', name: 'Volini Pain Relief Gel', genericName: 'Diclofenac', brand: 'Sun Pharma', category: 'Personal Care', mrp: 150, price: 135, rating: 4.6, reviews: 543, inStock: true, image: 'https://images.unsplash.com/photo-1550572017-edb79a528e21?w=400&q=80', rxRequired: false },
-  { id: '4', name: 'Himalaya Liv.52 DS', genericName: 'Ayurvedic Liver Tonic', brand: 'Himalaya Wellness', category: 'Ayurvedic', mrp: 180, price: 160, rating: 4.9, reviews: 2100, inStock: false, image: 'https://images.unsplash.com/photo-1607619056574-7b8d3ee536b2?w=400&q=80', rxRequired: false },
-  { id: '5', name: 'Augmentin 625 Duo Tablet', genericName: 'Amoxycillin + Clavulanic Acid', brand: 'GlaxoSmithKline', category: 'Tablets', mrp: 220, price: 195, rating: 4.7, reviews: 890, inStock: true, image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80', rxRequired: true },
-];
-
-const CATEGORIES = ['All', 'Tablets', 'Syrups', 'Baby Care', 'Personal Care', 'Ayurvedic', 'Diabetes', 'Heart Care', 'Skin Care'];
-const BRANDS = ['All', 'Micro Labs Ltd', 'Johnson & Johnson', 'Sun Pharma', 'Himalaya Wellness', 'GlaxoSmithKline'];
+import { useMedicines } from '../../hooks/useMedicines';
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
+  
+  const { medicines, loading } = useMedicines();
   
   const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState('All');
@@ -27,17 +19,20 @@ export default function Search() {
   const [sortBy, setSortBy] = useState('popular');
   const [showFilters, setShowFilters] = useState(false);
 
+  const CATEGORIES = useMemo(() => ['All', ...new Set(medicines.map(m => m.category).filter(Boolean))], [medicines]);
+  const BRANDS = useMemo(() => ['All', ...new Set(medicines.map(m => m.brand).filter(Boolean))], [medicines]);
+
   const filteredMedicines = useMemo(() => {
-    let result = ALL_MEDICINES;
+    let result = medicines;
 
     // Search filter
     if (query) {
       const q = query.toLowerCase();
       result = result.filter(m => 
-        m.name.toLowerCase().includes(q) || 
-        m.brand.toLowerCase().includes(q) || 
-        m.genericName.toLowerCase().includes(q) ||
-        m.category.toLowerCase().includes(q)
+        (m.name && m.name.toLowerCase().includes(q)) || 
+        (m.brand && m.brand.toLowerCase().includes(q)) || 
+        (m.genericName && m.genericName.toLowerCase().includes(q)) ||
+        (m.category && m.category.toLowerCase().includes(q))
       );
     }
 
@@ -77,7 +72,7 @@ export default function Search() {
     }
 
     return result;
-  }, [query, category, brand, rxRequired, inStockOnly, sortBy]);
+  }, [query, category, brand, rxRequired, inStockOnly, sortBy, medicines]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -211,7 +206,12 @@ export default function Search() {
             </div>
           </div>
 
-          {filteredMedicines.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800">
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-slate-500">Loading medicines...</p>
+            </div>
+          ) : filteredMedicines.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredMedicines.map(medicine => (
                 <MedicineCard key={medicine.id} medicine={medicine} />

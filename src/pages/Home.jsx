@@ -1,6 +1,7 @@
 import { ArrowRight, ShieldCheck, Truck, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MedicineCard from '../components/MedicineCard';
+import { useMedicines } from '../hooks/useMedicines';
 
 // Dummy data for initial display
 const MOCK_CATEGORIES = [
@@ -68,6 +69,9 @@ const MOCK_MEDICINES = [
 ];
 
 export default function Home() {
+  const { medicines, loading } = useMedicines();
+  const featuredMedicines = medicines.slice(0, 4);
+
   return (
     <div className="space-y-12 pb-12">
       {/* Hero Section */}
@@ -163,15 +167,21 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Featured Medicines</h2>
-          <Link to="/search?filter=featured" className="text-primary font-semibold hover:underline flex items-center gap-1">
+          <Link to="/search" className="text-primary font-semibold hover:underline flex items-center gap-1">
             View All <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {MOCK_MEDICINES.map(medicine => (
-            <MedicineCard key={medicine.id} medicine={medicine} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-8 text-slate-500">Loading medicines...</div>
+        ) : featuredMedicines.length === 0 ? (
+          <div className="text-center py-8 text-slate-500">No medicines found.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featuredMedicines.map(medicine => (
+              <MedicineCard key={medicine.id} medicine={medicine} />
+            ))}
+          </div>
+        )}
       </section>
       
       {/* Promotional Banner */}
